@@ -1,0 +1,3 @@
+🚀 ЗАПУСК УПРОЩЕННОГО ТЕСТЕРА ФИО
+Loading dictionaries from /Users/evgenyzach/contact_parser_Claude/venv/lib/python3.13/site-packages/pymorphy2_dicts_ru/data
+format: 2.4, revision: 417127, updated: 2020-10-11T15:05:51.070345

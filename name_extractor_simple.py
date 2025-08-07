@@ -16,7 +16,7 @@ import sys
 load_dotenv()
 
 # 📝 НАСТРОЙКА ЛОГИРОВАНИЯ
-log_filename = 'name_extractor_simple_log.txt'
+log_filename = 'name_extractor_no_normalization_log.txt'
 if os.path.exists(log_filename):
     os.remove(log_filename)
 
@@ -28,10 +28,10 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
-logger = logging.getLogger('name_extractor_simple')
+logger = logging.getLogger('name_extractor_no_normalization')
 
-class NameExtractorSimple:
-    """Упрощенный экстрактор ФИО с одним файлом исключений"""
+class NameExtractorNoNormalization:
+    """🎯 УПРОЩЕННЫЙ экстрактор ФИО БЕЗ нормализации склонений - собираем как есть!"""
     
     def __init__(self):
         self.imap_server = os.environ.get('IMAP_SERVER')
@@ -43,54 +43,47 @@ class NameExtractorSimple:
         if not os.path.exists('data'):
             os.makedirs('data')
         
-        # 📄 Загружаем паттерны из файла
+        # 📄 Загружаем паттерны и исключения
         self.name_patterns = self._load_patterns_from_file()
-        
-        # 📄 Загружаем ЕДИНЫЙ файл исключений
         self.exclusions = self._load_exclusions_from_file()
         
-        # Контекстные индикаторы наличия ФИО
+        # 🎯 Контекстные индикаторы
         self.name_indicators = [
             'руководитель', 'директор', 'менеджер', 'специалист',
             'заместитель', 'начальник', 'исполнитель', 'ответственный',
             'контактное лицо', 'представитель', 'координатор',
-            'от:', 'с уважением', 'подпись', 'исп.', 'тел.', 'моб.'
+            'от:', 'с уважением', 'подпись', 'исп.', 'тел.', 'моб.',
+            'факс', 'email', 'почта', 'ведущий', 'старший', 'главный'
         ]
         
-        # 🔧 Инициализируем pymorphy2 для нормализации падежей (опционально)
-        try:
-            import pymorphy2
-            self.morph = pymorphy2.MorphAnalyzer()
-            self.morphology_available = True
-            logger.info("✅ pymorphy2 загружен для нормализации падежей")
-        except ImportError:
-            self.morph = None
-            self.morphology_available = False
-            logger.warning("⚠️ pymorphy2 не найден. Нормализация падежей недоступна")
-        
-        logger.info("✅ Упрощенный экстрактор ФИО инициализирован")
+        logger.info("✅ Упрощенный экстрактор ФИО инициализирован (БЕЗ нормализации)")
         logger.info(f"📄 Загружено паттернов: {len(self.name_patterns)}")
         logger.info(f"🚫 Загружено исключений: {len(self.exclusions)}")
+        logger.info("🎯 Стратегия: собираем ФИО как есть, нормализация потом!")
     
     def _load_patterns_from_file(self) -> List[str]:
         """Загружает паттерны из файла"""
         patterns_file = 'data/name_patterns.txt'
         
-        # Создаем файл с паттернами если его нет
         if not os.path.exists(patterns_file):
             default_patterns = [
+                # Полное ФИО (3 слова)
                 r'\b([А-ЯЁ][а-яё]{2,20}\s[А-ЯЁ][а-яё]{2,20}\s[А-ЯЁ][а-яё]{2,20})\b',
+                # Имя + Фамилия (2 слова) 
                 r'\b([А-ЯЁ][а-яё]{2,20}\s[А-ЯЁ][а-яё]{2,20})\b',
+                # Фамилия + 1 инициал
                 r'\b([А-ЯЁ][а-яё]{2,20}\s[А-ЯЁ]\.)\b',
+                # Фамилия + 2 инициала
                 r'\b([А-ЯЁ][а-яё]{2,20}\s[А-ЯЁ]\.\s*[А-ЯЁ]\.)\b',
-                r'\b([А-ЯЁ]\.?\s*[А-ЯЁ]\.?\s*[А-ЯЁ][а-яё]{2,20})\b',
-                r'\b([А-ЯЁ]\.?\s*[А-ЯЁ][а-яё]{2,20})\b'
+                # Инициалы + фамилия
+                r'\b([А-ЯЁ]\.\s*[А-ЯЁ]\.\s*[А-ЯЁ][а-яё]{2,20})\b',
+                r'\b([А-ЯЁ]\.\s*[А-ЯЁ][а-яё]{2,20})\b'
             ]
             with open(patterns_file, 'w', encoding='utf-8') as f:
+                f.write('# Паттерны для извлечения ФИО (без нормализации)\n')
                 for pattern in default_patterns:
                     f.write(pattern + '\n')
         
-        # Загружаем паттерны
         patterns = []
         try:
             with open(patterns_file, 'r', encoding='utf-8') as f:
@@ -105,33 +98,27 @@ class NameExtractorSimple:
         return patterns
     
     def _load_exclusions_from_file(self) -> set:
-        """🔧 УПРОЩЕНО: Загружает исключения из ОДНОГО файла"""
+        """Загружает исключения из файла"""
         exclusions_file = 'data/exclusions.txt'
         exclusions = set()
         
-        # Создаем файл исключений если его нет
         if not os.path.exists(exclusions_file):
             default_exclusions = [
-                '# Все исключения для ФИО в одном файле',
+                '# Исключения для ФИО',
                 '# Географические объекты',
                 'улица', 'ул.', 'проспект', 'пр.', 'переулок', 'пер.',
-                'площадь', 'пл.', 'бульвар', 'б-р', 'шоссе', 'набережная',
-                'андриена лежена', 'лежена',
+                'андриена лежена', 'лежена', 'варшавское шоссе',
                 '# Должности',
                 'директор', 'менеджер', 'специалист', 'руководитель',
                 'ведущий', 'старший', 'главный', 'заместитель',
                 '# Компании',
-                'ооо', 'зао', 'пао', 'ао', 'ип', 'технология',
-                'дна-технология', 'днк-технология', 'биохиммак',
-                '# Общие слова',
-                'система', 'отдел', 'департамент', 'компания'
+                'ооо', 'зао', 'технология', 'дна-технология', 'днк-технология'
             ]
             
             with open(exclusions_file, 'w', encoding='utf-8') as f:
                 for item in default_exclusions:
                     f.write(item + '\n')
         
-        # Загружаем исключения
         try:
             with open(exclusions_file, 'r', encoding='utf-8') as f:
                 for line in f:
@@ -143,71 +130,55 @@ class NameExtractorSimple:
         
         return exclusions
     
-    def _normalize_name_morphology(self, name: str) -> str:
-        """Нормализует ФИО в именительный падеж"""
-        if not self.morphology_available:
-            return name
-        
-        words = name.split()
-        normalized_words = []
-        
-        for word in words:
-            try:
-                parsed = self.morph.parse(word)[0]
-                if any(tag in str(parsed.tag) for tag in ['Name', 'Surn', 'Patr']) or parsed.tag.POS in ['NOUN']:
-                    nominative = parsed.inflect({'nomn'})
-                    if nominative:
-                        normalized_words.append(nominative.word.capitalize())
-                    else:
-                        normalized_words.append(parsed.normal_form.capitalize())
-                else:
-                    normalized_words.append(word.capitalize())
-            except Exception:
-                normalized_words.append(word.capitalize())
-        
-        return ' '.join(normalized_words)
-    
     def extract_names_only(self, text: str) -> List[Dict[str, str]]:
-        """Извлекает ФИО из текста с упрощенной фильтрацией"""
+        """🎯 ГЛАВНАЯ ФУНКЦИЯ: извлекает ФИО БЕЗ нормализации, как есть"""
         
         if not text or not isinstance(text, str):
             return []
         
+        # Ограничиваем размер
         text = text[:15000]
-        processed_text = self._preprocess_text(text)
+        
+        # Минимальная предобработка (только пробелы)
+        processed_text = self._minimal_preprocess(text)
+        
+        # Извлекаем по паттернам
         raw_names = self._extract_by_patterns(processed_text)
+        
+        # Фильтруем только по исключениям и контексту
         filtered_names = self._filter_names_simple(raw_names, processed_text)
-        final_names = self._normalize_and_deduplicate_simple(filtered_names)
+        
+        # Простая дедупликация (только точные совпадения)
+        final_names = self._simple_deduplicate(filtered_names)
         
         return final_names
     
-    def _preprocess_text(self, text: str) -> str:
-        """Предобработка текста"""
+    def _minimal_preprocess(self, text: str) -> str:
+        """Минимальная предобработка - только нормализуем пробелы"""
         text = re.sub(r'\s+', ' ', text)
         text = text.replace('\n', ' ').replace('\r', ' ')
-        text = text.replace('ё', 'е').replace('Ё', 'Е')
         return text.strip()
     
     def _extract_by_patterns(self, text: str) -> List[str]:
-        """Извлекает ФИО по regex паттернам"""
+        """Извлекает ФИО по паттернам"""
         found_names = []
         for pattern in self.name_patterns:
             try:
                 matches = re.findall(pattern, text)
                 found_names.extend(matches)
             except Exception as e:
-                logger.warning(f"⚠️ Ошибка в паттерне {pattern}: {e}")
+                logger.warning(f"⚠️ Ошибка в паттерне: {e}")
         return found_names
     
     def _filter_names_simple(self, raw_names: List[str], full_text: str) -> List[str]:
-        """🔧 УПРОЩЕННАЯ фильтрация с одним файлом исключений"""
+        """Простая фильтрация - только исключения и контекст"""
         
         filtered = []
         full_text_lower = full_text.lower()
         
         for name in raw_names:
-            # 🚫 Единая проверка исключений
-            if self._is_excluded_simple(name):
+            # 🚫 Проверяем исключения
+            if self._is_excluded(name):
                 continue
             
             # ✅ Проверяем контекст или очевидность ФИО
@@ -216,28 +187,27 @@ class NameExtractorSimple:
         
         return filtered
     
-    def _is_excluded_simple(self, name: str) -> bool:
-        """🔧 УПРОЩЕНО: проверка исключений из одного файла"""
-        
+    def _is_excluded(self, name: str) -> bool:
+        """Проверка исключений"""
         name_lower = name.lower()
         
         # Точное совпадение
         if name_lower in self.exclusions:
             return True
         
-        # Частичное совпадение для составных названий
+        # Частичное совпадение
         for exclusion in self.exclusions:
             if len(exclusion.split()) > 1:
                 if exclusion in name_lower:
                     return True
         
-        # Проверка слов в составе ФИО
+        # Проверка слов
         words = name_lower.split()
         for word in words:
             if word in self.exclusions:
                 return True
         
-        # Дополнительные проверки
+        # Базовые проверки
         if len(name) > 100 or re.search(r'\d', name) or re.search(r'[a-zA-Z]', name):
             return True
         
@@ -261,11 +231,15 @@ class NameExtractorSimple:
     
     def _looks_like_name(self, name: str) -> bool:
         """Проверяет похожесть на ФИО"""
+        # Если есть инициалы - скорее всего ФИО
         if re.search(r'[А-ЯЁ]\.', name):
             return True
+        
+        # Если 3 слова - может быть полное ФИО
         if len(name.split()) == 3:
             return True
         
+        # Если 2 слова без цифр и латиницы
         words = name.split()
         if len(words) == 2:
             if all(len(word) >= 2 for word in words):
@@ -274,56 +248,22 @@ class NameExtractorSimple:
                         return True
         return False
     
-    def _normalize_and_deduplicate_simple(self, names: List[str]) -> List[Dict[str, str]]:
-        """Упрощенная нормализация и дедупликация"""
+    def _simple_deduplicate(self, names: List[str]) -> List[Dict[str, str]]:
+        """🎯 ПРОСТАЯ дедупликация - только точные совпадения, БЕЗ нормализации"""
         
-        # Нормализуем падежи
-        normalized_names = []
-        for name in names:
-            normalized_name = self._normalize_name_morphology(name)
-            normalized_names.append(normalized_name)
-        
-        # Группируем и дедуплицируем
-        full_names = []
-        short_names = []
-        
-        for name in normalized_names:
-            words = name.split()
-            if len(words) == 3 and not re.search(r'[А-ЯЁ]\.', name):
-                full_names.append(name)
-            else:
-                short_names.append(name)
-        
-        # Результат
         result_names = []
         seen = set()
         
-        # Полные имена
-        for full_name in full_names:
-            if full_name not in seen:
-                result_names.append({'fullname': full_name, 'type': 'full_name'})
-                seen.add(full_name)
-        
-        # Сокращенные (без дубликатов полных)
-        for short_name in short_names:
-            if short_name not in seen:
-                is_duplicate = False
-                short_words = short_name.split()
-                
-                for full_name in full_names:
-                    full_words = full_name.split()
-                    if len(short_words) >= 2 and len(full_words) >= 2:
-                        if (short_words[0].lower() == full_words[0].lower() and 
-                            short_words[1].lower() == full_words[1].lower()):
-                            is_duplicate = True
-                            break
-                
-                if not is_duplicate:
-                    result_names.append({
-                        'fullname': short_name,
-                        'type': self._classify_name_type(short_name)
-                    })
-                    seen.add(short_name)
+        for name in names:
+            # Только убираем лишние пробелы, НЕ меняем падежи
+            clean_name = re.sub(r'\s+', ' ', name.strip())
+            
+            if clean_name not in seen:
+                result_names.append({
+                    'fullname': clean_name,
+                    'type': self._classify_name_type(clean_name)
+                })
+                seen.add(clean_name)
         
         return result_names
     
@@ -340,7 +280,7 @@ class NameExtractorSimple:
         else:
             return 'unknown'
     
-    # Остальные методы остаются такими же
+    # Методы работы с почтой остаются прежними
     def _extract_email_body_fast(self, msg) -> str:
         """Быстрое извлечение тела письма"""
         body = ""
@@ -396,9 +336,9 @@ class NameExtractorSimple:
             return date_str[:16] if len(date_str) > 16 else date_str
     
     def test_single_date_detailed(self, date_str: str = '2025-07-29'):
-        """Тестирует одну дату"""
+        """Тестирует одну дату БЕЗ нормализации"""
         logger.info("=" * 80)
-        logger.info(f"📝 УПРОЩЕННЫЙ ТЕСТ ФИО ЗА {date_str}")
+        logger.info(f"📝 ТЕСТ ФИО БЕЗ НОРМАЛИЗАЦИИ ЗА {date_str}")
         logger.info("=" * 80)
         
         try:
@@ -422,7 +362,13 @@ class NameExtractorSimple:
             if total_emails == 0:
                 logger.info("❌ Писем не найдено!")
                 mailbox.logout()
-                return {'date': date_str, 'total_emails': 0, 'emails_with_names': 0, 'unique_names': 0, 'names_list': []}
+                return {
+                    'date': date_str,
+                    'total_emails': 0,
+                    'emails_with_names': 0,
+                    'unique_names': 0,
+                    'names_list': []
+                }
             
             emails_with_names = []
             all_names = []
@@ -458,7 +404,7 @@ class NameExtractorSimple:
                         logger.info(f"\n📧 Письмо {i}/{total_emails}: {email_date}")
                         logger.info(f"   📝 Тема: {subject}")
                         logger.info(f"   👤 От: {from_addr}")
-                        logger.info("   📝 ФИО:")
+                        logger.info("   📝 ФИО (как есть):")
                         for name_info in names:
                             logger.info(f"      ✅ {name_info['fullname']} ({name_info['type']})")
                 
@@ -468,6 +414,7 @@ class NameExtractorSimple:
             
             mailbox.logout()
             
+            # Подсчет уникальных ФИО
             unique_names = []
             seen_names = set()
             for name_info in all_names:
@@ -478,20 +425,21 @@ class NameExtractorSimple:
             total_time = time.time() - start_time
             
             logger.info("=" * 80)
-            logger.info(f"📊 РЕЗУЛЬТАТЫ УПРОЩЕННОГО ТЕСТА ЗА {date_str}")
+            logger.info(f"📊 РЕЗУЛЬТАТЫ БЕЗ НОРМАЛИЗАЦИИ ЗА {date_str}")
             logger.info("=" * 80)
             logger.info(f"📬 Всего писем: {total_emails}")
             logger.info(f"📝 Писем с ФИО: {len(emails_with_names)}")
             logger.info(f"🎯 Уникальных ФИО: {len(unique_names)}")
             logger.info(f"⏱️ Время обработки: {total_time:.1f} сек")
+            logger.info("💡 Стратегия: собираем как есть, дубликаты/склонения решаем позже!")
             
             if unique_names:
-                logger.info(f"\n📋 ВСЕ УНИКАЛЬНЫЕ ФИО ЗА {date_str}:")
+                logger.info(f"\n📋 ВСЕ ФИО ЗА {date_str} (как есть в письмах):")
                 for i, name_info in enumerate(sorted(unique_names, key=lambda x: x['fullname']), 1):
                     logger.info(f"   {i:2d}. {name_info['fullname']} ({name_info['type']})")
             
             logger.info("=" * 80)
-            logger.info(f"✅ УПРОЩЕННЫЙ ТЕСТ ЗА {date_str} ЗАВЕРШЕН")
+            logger.info(f"✅ ТЕСТ БЕЗ НОРМАЛИЗАЦИИ ЗА {date_str} ЗАВЕРШЕН")
             logger.info("=" * 80)
             
             return {
@@ -508,9 +456,10 @@ class NameExtractorSimple:
             return None
     
     def test_date_range_detailed(self, start_date: str, end_date: str):
-        """Тестирует диапазон дат"""
+        """Тестирует диапазон дат БЕЗ нормализации"""
         logger.info("=" * 80)
-        logger.info(f"📝 УПРОЩЕННЫЙ ТЕСТ ФИО ПО ДИАПАЗОНУ: {start_date} - {end_date}")
+        logger.info(f"📝 ТЕСТ ФИО БЕЗ НОРМАЛИЗАЦИИ: {start_date} - {end_date}")
+        logger.info("💡 Собираем ФИО как есть, нормализация потом на этапе таблицы!")
         logger.info("=" * 80)
         
         start_dt = datetime.strptime(start_date, '%Y-%m-%d')
@@ -541,6 +490,7 @@ class NameExtractorSimple:
             current_date += timedelta(days=1)
             day_counter += 1
         
+        # Подсчет уникальных ФИО за весь период
         unique_names_all = []
         seen_names_all = set()
         for name_info in total_names_all:
@@ -549,14 +499,15 @@ class NameExtractorSimple:
                 seen_names_all.add(name_info['fullname'])
         
         logger.info("=" * 80)
-        logger.info(f"📊 ИТОГОВЫЙ ОТЧЕТ УПРОЩЕННОГО ТЕСТА {start_date} - {end_date}")
+        logger.info(f"📊 ИТОГОВЫЙ ОТЧЕТ БЕЗ НОРМАЛИЗАЦИИ {start_date} - {end_date}")
         logger.info("=" * 80)
         logger.info(f"📅 Протестировано дней: {total_days}")
         logger.info(f"📬 Всего писем: {total_emails_all}")
         logger.info(f"🎯 Всего уникальных ФИО: {len(unique_names_all)}")
+        logger.info("💡 Включая все склонения - дедуплицируем потом в таблице!")
         
         if unique_names_all:
-            logger.info(f"\n📋 ВСЕ ФИО ЗА ПЕРИОД {start_date} - {end_date}:")
+            logger.info(f"\n📋 ВСЕ ФИО ЗА ПЕРИОД {start_date} - {end_date} (как есть):")
             for i, name_info in enumerate(sorted(unique_names_all, key=lambda x: x['fullname']), 1):
                 logger.info(f"   {i:3d}. {name_info['fullname']} ({name_info['type']})")
             
@@ -568,7 +519,8 @@ class NameExtractorSimple:
                     logger.info(f"   📅 {day_result['date']}: {day_result['total_emails']} писем, ФИО не найдено")
         
         logger.info("=" * 80)
-        logger.info(f"✅ УПРОЩЕННЫЙ ТЕСТ ДИАПАЗОНА ЗАВЕРШЕН")
+        logger.info(f"✅ ТЕСТ БЕЗ НОРМАЛИЗАЦИИ ЗАВЕРШЕН")
+        logger.info("💡 Следующий этап: объединение всех экстракторов + нормализация в таблице")
         logger.info("=" * 80)
         
         return {
@@ -583,23 +535,25 @@ class NameExtractorSimple:
 
 
 def main():
-    """Главная функция упрощенного тестера"""
+    """Главная функция упрощенного тестера БЕЗ нормализации"""
     
-    logger.info("🚀 ЗАПУСК УПРОЩЕННОГО ТЕСТЕРА ФИО")
+    logger.info("🚀 ЗАПУСК УПРОЩЕННОГО ТЕСТЕРА ФИО (БЕЗ НОРМАЛИЗАЦИИ)")
+    logger.info("💡 Стратегия: собираем максимально широко как есть!")
     
-    tester = NameExtractorSimple()
+    tester = NameExtractorNoNormalization()
     
-    # 🎯 НАСТРОЙКА ДАТ - ИЗМЕНИ ЗДЕСЬ! (строки 378-379)
+    # 🎯 НАСТРОЙКА ДАТ - ИЗМЕНИ ЗДЕСЬ!
     start_date = '2025-07-29'  # ← НАЧАЛЬНАЯ ДАТА
     end_date = '2025-08-04'    # ← КОНЕЧНАЯ ДАТА
     
     results = tester.test_date_range_detailed(start_date, end_date)
     
     if results:
-        logger.info(f"\n🎉 УПРОЩЕННЫЙ ТЕСТ ФИО ЗАВЕРШЕН!")
+        logger.info(f"\n🎉 УПРОЩЕННЫЙ СБОР ФИО ЗАВЕРШЕН!")
         logger.info(f"📅 Период: {results['start_date']} - {results['end_date']}")
         logger.info(f"📬 Всего писем: {results['total_emails']}")
         logger.info(f"📝 Всего уникальных ФИО: {results['total_unique_names']}")
+        logger.info(f"💾 Данные для анализа: name_extractor_no_normalization_log.txt")
 
 
 if __name__ == "__main__":
