@@ -16,7 +16,7 @@ import sys
 load_dotenv()
 
 # 📝 НАСТРОЙКА ЛОГИРОВАНИЯ
-log_filename = 'name_extractor_no_normalization_log.txt'
+log_filename = 'name_extractor_log.txt'
 if os.path.exists(log_filename):
     os.remove(log_filename)
 
@@ -28,7 +28,7 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
-logger = logging.getLogger('name_extractor_no_normalization')
+logger = logging.getLogger('name_extractor')
 
 class NameExtractorNoNormalization:
     """🎯 УПРОЩЕННЫЙ экстрактор ФИО БЕЗ нормализации склонений - собираем как есть!"""
