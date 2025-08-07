@@ -1,0 +1,31 @@
+# CLI и конфигурация
+typer[all]==0.12.3
+pydantic==2.8.2
+pydantic-settings==2.4.0
+
+# Логирование
+structlog==24.2.0
+PyYAML==6.0.1
+
+# Работа с почтой (уже используются)
+python-dotenv==1.0.1
+beautifulsoup4==4.12.3
+
+# Excel
+pandas==2.2.2
+openpyxl==3.1.5
+
+# NER и обработка текста
+transformers==4.42.3
+torch==2.3.1
+natasha==1.6.0
+yargy==0.16.0
+
+# Телефоны
+phonenumbers==8.13.40
+
+# Парсинг подписей
+email-reply-parser==0.5.12
+
+# Дополнительные утилиты
+python-dateutil==2.9.0
